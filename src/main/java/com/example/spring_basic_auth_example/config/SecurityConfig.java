@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -16,6 +17,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
@@ -62,6 +64,31 @@ public class SecurityConfig {
         var authManagerBuilder = http.getSharedObject(AuthenticationManagerBuilder.class);
 
         authManagerBuilder.userDetailsService(inMemoryUserDetailService);
+
+        return authManagerBuilder.build();
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "app.security", name = "type", havingValue = "db")
+    public PasswordEncoder passwordEncoder(){ //Кодирование паролей
+        return new BCryptPasswordEncoder(12);
+    }
+
+
+    //Аутентификация в БД
+    @Bean
+    @ConditionalOnProperty(prefix = "app.security", name = "type", havingValue = "db")
+    public AuthenticationManager databaseAuthenticationManager(HttpSecurity http,
+                                                               UserDetailsService userDetailsService,
+                                                               PasswordEncoder passwordEncoder) throws Exception {
+        var authManagerBuilder = http.getSharedObject(AuthenticationManagerBuilder.class);
+
+        authManagerBuilder.userDetailsService(userDetailsService);
+
+        var authProvider = new DaoAuthenticationProvider(passwordEncoder);
+        authProvider.setUserDetailsService(userDetailsService);
+
+        authManagerBuilder.authenticationProvider(authProvider);
 
         return authManagerBuilder.build();
     }
